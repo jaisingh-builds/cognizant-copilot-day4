@@ -100,13 +100,13 @@ jobs:
         run: npm install -g @microsoft/teamsapp-cli@latest
 
       - name: Smoke-build bot package
-        working-directory: custom-engine-bot
         run: |
-          if [ -f package.json ]; then
+          if [ -d custom-engine-bot ] && [ -f custom-engine-bot/package.json ]; then
+            cd custom-engine-bot
             npm ci || npm install
-            npm run build || echo "build failed (non-blocking stub)"
+            npm run build || echo "::warning::bot build failed (non-blocking stub)"
           else
-            echo "No bot source in repo yet — skipping."
+            echo "No bot source in repo yet - skipping. Bot lives at day4/labs/lab4-custom-engine-sdk/contoso-hr-custom in training workspace."
           fi
 
   # --------------------------------------------------------------------
