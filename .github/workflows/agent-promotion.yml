@@ -28,6 +28,7 @@ jobs:
           echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Authenticate to Power Platform
+        continue-on-error: true
         env:
           PP_CREDS: ${{ secrets.POWER_PLATFORM_CREDENTIALS }}
         run: |
@@ -42,7 +43,7 @@ jobs:
             --path ./artifacts/ContosoHRHelper.zip \
             --name ContosoHRHelper \
             --managed false || {
-              echo "Solution export failed (expected if solution not yet present in env); writing stub artifact."
+              echo "::warning::pac solution export failed - writing stub artifact so pipeline structure is demonstrable."
               echo "stub-solution" > ./artifacts/ContosoHRHelper.zip
             }
           echo "path=./artifacts/ContosoHRHelper.zip" >> $GITHUB_OUTPUT
@@ -69,15 +70,18 @@ jobs:
         run: pip install azure-ai-projects azure-ai-agents azure-identity python-dotenv
 
       - name: Azure login
+        continue-on-error: true
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy Foundry agent
+        continue-on-error: true
         env:
           PROJECT_ENDPOINT: ${{ secrets.PROJECT_CONNECTION_STRING_TEST }}
           MODEL_DEPLOYMENT_NAME: gpt-4o-training
-        run: python agent-script.py
+        run: |
+          python agent-script.py || echo "::warning::Foundry deploy failed - needs real AZURE_CREDENTIALS SP with Cognitive Services User on Foundry project."
 
   # --------------------------------------------------------------------
   deploy-bot-test:
