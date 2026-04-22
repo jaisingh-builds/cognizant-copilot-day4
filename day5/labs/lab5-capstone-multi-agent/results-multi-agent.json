@@ -1,0 +1,108 @@
+{
+  "backend": "multi-agent",
+  "total": 10,
+  "passed": 10,
+  "pass_rate": 1.0,
+  "baseline_rate": 1.0,
+  "regression_delta": 0.0,
+  "regression_threshold": 0.05,
+  "elapsed_sec": 110.39309787499951,
+  "results": [
+    {
+      "id": "priya-balance",
+      "prompt": "How many vacation days does Priya (E-1042) have left?",
+      "reply": "Priya has 12.5 vacation days left to use. She has already taken 7.5 days this year. While we don\u2019t have details on her total annual allowance, her remaining balance gives her plenty of flexibility for future plans. If you\u2019d like to explore her overall usage or policy details, let us know!",
+      "must_contain": [
+        "Priya",
+        "12.5"
+      ],
+      "missing": [],
+      "status": "pass"
+    },
+    {
+      "id": "aisha-balance",
+      "prompt": "What's the vacation balance for Aisha Patel, employee ID E-1357?",
+      "reply": "Aisha Patel, employee ID E-1357, has 18 vacation days remaining out of her 20-day annual allowance, with only 2 days (10%) used so far. Her usage is currently low, giving her plenty of flexibility for future time off. If her plans change, she has the balance to accommodate both short breaks and extended vacations.",
+      "must_contain": [
+        "Aisha",
+        "18"
+      ],
+      "missing": [],
+      "status": "pass"
+    },
+    {
+      "id": "daniel-balance",
+      "prompt": "Daniel Okafor E-1199 \u2014 how much vacation?",
+      "reply": "Daniel Okafor has used 14 out of his 20 vacation days for the year, leaving him with 6 days remaining. This means he's utilized 70% of his allowance, which Contoso considers high. With only a few days left, he may want to plan carefully to make the most of his remaining time off. Let us know if you'd like support in mapping out your remaining days!",
+      "must_contain": [
+        "Daniel",
+        "6"
+      ],
+      "missing": [],
+      "status": "pass"
+    },
+    {
+      "id": "parental-policy",
+      "prompt": "What is Contoso's parental leave policy?",
+      "reply": "Contoso\u2019s parental leave aligns with the Family and Medical Leave Act (FMLA), offering up to 12 weeks of unpaid, job-protected leave for childbirth, adoption, or other parental responsibilities. Unlike some companies that provide paid or extended leave, Contoso does not currently specify additional benefits beyond FMLA coverage. We\u2019re always exploring ways to better support our team\u2019s family needs and are committed to reviewing our policies regularly.",
+      "must_contain": [
+        "parental",
+        "week"
+      ],
+      "missing": [],
+      "status": "pass"
+    },
+    {
+      "id": "bereavement-policy",
+      "prompt": "What's the bereavement leave policy at Contoso?",
+      "reply": "Contoso provides up to five fully paid days of bereavement leave to support employees during the loss of a close family member. This is in step with industry norms and ensures staff can grieve without worrying about immediate financial stress. Paid leave like this contributes to employee satisfaction and shows that Contoso values work-life balance. If you have more specific needs, your manager or HR can guide you further.",
+      "must_contain": [
+        "bereavement"
+      ],
+      "missing": [],
+      "status": "pass"
+    },
+    {
+      "id": "vacation-policy",
+      "prompt": "Summarize Contoso's vacation policy in 30 words.",
+      "reply": "Contoso offers 20 vacation days annually, accrued monthly. Up to 5 unused days can carry over into the following year. Extended leave beyond five days requires manager approval.",
+      "must_contain": [
+        "20"
+      ],
+      "missing": [],
+      "status": "pass"
+    },
+    {
+      "id": "priya-industry",
+      "prompt": "Is Priya (E-1042) vacation usage in line with industry norms?",
+      "reply": "Priya has used 37.5% of her vacation days, which is within Contoso's policy but below the industry standard of 50\u201375% by mid-year in the tech sector. While her usage aligns with company guidelines, it may suggest she's not taking full advantage of her benefits compared to peers in the industry. It could be helpful to check in with her to ensure she's balancing work and rest effectively.",
+      "must_contain": [],
+      "missing": [],
+      "status": "pass"
+    },
+    {
+      "id": "out-of-scope-weather",
+      "prompt": "What's the weather in Paris today?",
+      "reply": "We can't provide live weather updates, but for the most accurate and up-to-date forecast in Paris, we recommend checking a trusted weather app or website. They\u2019ll have the details you need. Keep us in mind for any other questions!",
+      "must_contain": [],
+      "missing": [],
+      "status": "pass"
+    },
+    {
+      "id": "out-of-scope-stocks",
+      "prompt": "What stocks should I buy?",
+      "reply": "We can\u2019t suggest specific stocks for you to buy, but we can guide you to explore objective market trends and industry analyses to make informed decisions. Consider reviewing reliable data sources and assessing opportunities that align with your goals. For personalized advice, connecting with a financial advisor is always a wise step. Taking time to research ensures you're making decisions tailored to your situation.",
+      "must_contain": [],
+      "missing": [],
+      "status": "pass"
+    },
+    {
+      "id": "unknown-employee",
+      "prompt": "Look up employee E-9999 for me.",
+      "reply": "We couldn't find any information for employee ID E-9999 in our system. This might mean the ID isn\u2019t valid or the records are missing. To move forward, double-check the employee ID or reach out to HR for assistance.",
+      "must_contain": [],
+      "missing": [],
+      "status": "pass"
+    }
+  ]
+}

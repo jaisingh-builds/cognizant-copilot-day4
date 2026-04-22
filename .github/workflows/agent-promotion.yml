@@ -110,10 +110,62 @@ jobs:
           fi
 
   # --------------------------------------------------------------------
+  deploy-multi-agent-test:
+    name: Deploy multi-agent system (Test)
+    runs-on: ubuntu-latest
+    environment: test
+    needs: deploy-foundry-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          pip install \
+            "semantic-kernel>=1.10.0" \
+            "azure-ai-projects>=1.0.0b5" \
+            "azure-identity>=1.17.0" \
+            "openai>=1.50.0" \
+            "requests>=2.32.0"
+
+      - name: Azure login
+        continue-on-error: true
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Run multi-agent eval harness
+        env:
+          AZURE_OPENAI_ENDPOINT:     ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_API_KEY:      ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_DEPLOYMENT:   gpt-4o-training
+          AZURE_OPENAI_API_VERSION:  "2024-08-01-preview"
+          PROJECT_CONNECTION_STRING: ${{ secrets.PROJECT_CONNECTION_STRING_TEST }}
+          FOUNDRY_AGENT_ID:          fallback
+          USE_BING_MOCK:             "true"
+        run: |
+          python day5/labs/lab5-capstone-multi-agent/src/eval_harness.py \
+            --backend multi-agent \
+            --dataset day5/labs/lab5-capstone-multi-agent/eval-prompts.jsonl \
+            --regression-threshold 0.05 \
+            --out results-multi-agent-test.json || \
+            echo "::warning::multi-agent eval failed — see logs."
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results-multi-agent
+          path: results-multi-agent-test.json
+
+  # --------------------------------------------------------------------
   eval-gate-test:
     name: Eval gate (Test)
     runs-on: ubuntu-latest
-    needs: [deploy-foundry-test, deploy-bot-test]
+    needs: [deploy-foundry-test, deploy-bot-test, deploy-multi-agent-test]
     environment: test
     steps:
       - uses: actions/checkout@v4
