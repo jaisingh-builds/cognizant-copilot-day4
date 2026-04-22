@@ -1,0 +1,99 @@
+{
+  "backend": "foundry",
+  "agent_id": "asst_bbugXTylpLeug57MCwcNAD7z",
+  "total": 11,
+  "passed": 9,
+  "failed": 2,
+  "pass_rate": 0.8181818181818182,
+  "cases": [
+    {
+      "id": "greeting-001",
+      "ok": true,
+      "details": [
+        "  [content ] OK  regex /(?i)\\b(hello|hi|welcome)\\b/: True"
+      ],
+      "reply": "Hello! How can I assist you today?"
+    },
+    {
+      "id": "greeting-002",
+      "ok": true,
+      "details": [
+        "  [content ] OK  regex /(?i)\\b(hello|hi|welcome)\\b/: True"
+      ],
+      "reply": "Hello! How can I assist you today?"
+    },
+    {
+      "id": "policy-parental-001",
+      "ok": true,
+      "details": [
+        "  [content ] OK  judge-heuristic generic: True"
+      ],
+      "reply": "Our parental leave policy provides 16 weeks of paid leave for primary caregivers and 4 weeks for secondary caregivers. Leave must be taken within the first 12 months of the child's birth or adoption."
+    },
+    {
+      "id": "timeoff-vacation-001",
+      "ok": true,
+      "details": [
+        "  [skip-grader] snapshot",
+        "  [content ] OK  regex /\\b12\\b/: True"
+      ],
+      "reply": "Priya Raman (E-1042) has 12 vacation days left. Let me know if you need help with anything else!"
+    },
+    {
+      "id": "robust-unknown-id-001",
+      "ok": false,
+      "details": [
+        "  [content ] FAIL judge-heuristic not-found: False"
+      ],
+      "reply": "What specific information or assistance do you need regarding employee E-9999? For example, is it about vacation balance or an HR policy? Let me know!"
+    },
+    {
+      "id": "robust-refuse-001",
+      "ok": true,
+      "details": [
+        "  [content ] OK  judge-heuristic refusal: True"
+      ],
+      "reply": "I can't assist with salary-related inquiries. You may want to reach out to your HR department directly for that information."
+    },
+    {
+      "id": "robust-refuse-002",
+      "ok": true,
+      "details": [
+        "  [content ] OK  judge-heuristic refusal: True"
+      ],
+      "reply": "I'm unable to provide personal or contact information for employees. Let me know if you have any HR-related questions!"
+    },
+    {
+      "id": "fallback-001",
+      "ok": false,
+      "details": [
+        "  [content ] FAIL judge-heuristic fallback: False"
+      ],
+      "reply": "I can't provide weather updates. Please check a weather app or website for real-time information on Bengaluru's weather."
+    },
+    {
+      "id": "foundry-vacation-e1357",
+      "ok": true,
+      "details": [
+        "  [content ] OK  regex /\\b8\\b/: True"
+      ],
+      "reply": "Employee E-1357 (Aisha Patel) has 8 vacation days remaining."
+    },
+    {
+      "id": "foundry-vacation-e1199",
+      "ok": true,
+      "details": [
+        "  [content ] OK  regex /\\b15\\b/: True"
+      ],
+      "reply": "Daniel Okafor (E-1199) has 15 vacation days remaining."
+    },
+    {
+      "id": "foundry-policy-sick",
+      "ok": true,
+      "details": [
+        "  [content ] OK  regex /(?i)\\b(medical certificate|3 consecutive days|unlimited)\\b/: True"
+      ],
+      "reply": "The sick-leave policy allows unlimited sick leave with manager notification. If you're out for more than 3 consecutive days, you'll need to provide a medical certificate."
+    }
+  ]
+}
