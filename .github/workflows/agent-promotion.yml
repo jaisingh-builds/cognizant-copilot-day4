@@ -14,159 +14,122 @@ permissions:
 
 jobs:
   # --------------------------------------------------------------------
-  export-studio:
-    name: Export Copilot Studio solution
-    runs-on: ubuntu-latest
-    outputs:
-      solution-path: ${{ steps.export.outputs.path }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Power Platform CLI
-        run: |
-          dotnet tool install --global Microsoft.PowerApps.CLI.Tool
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-
-      - name: Authenticate to Power Platform
-        continue-on-error: true
-        env:
-          PP_CREDS: ${{ secrets.POWER_PLATFORM_CREDENTIALS }}
-        run: |
-          echo "$PP_CREDS" > pp.json
-          pac auth create --file pp.json
-
-      - name: Export solution
-        id: export
-        run: |
-          mkdir -p ./artifacts
-          pac solution export \
-            --path ./artifacts/ContosoHRHelper.zip \
-            --name ContosoHRHelper \
-            --managed false || {
-              echo "::warning::pac solution export failed - writing stub artifact so pipeline structure is demonstrable."
-              echo "stub-solution" > ./artifacts/ContosoHRHelper.zip
-            }
-          echo "path=./artifacts/ContosoHRHelper.zip" >> $GITHUB_OUTPUT
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: studio-solution
-          path: ./artifacts/ContosoHRHelper.zip
-
-  # --------------------------------------------------------------------
-  deploy-foundry-test:
-    name: Deploy Foundry agent (Test)
+  verify-foundry-agent:
+    name: Verify Foundry agent (Test)
     runs-on: ubuntu-latest
     environment: test
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install deps
-        run: pip install azure-ai-projects azure-ai-agents azure-identity python-dotenv
-
       - name: Azure login
-        continue-on-error: true
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy Foundry agent
-        continue-on-error: true
-        env:
-          PROJECT_ENDPOINT: ${{ secrets.PROJECT_CONNECTION_STRING_TEST }}
-          MODEL_DEPLOYMENT_NAME: gpt-4o-training
+      - name: Confirm Foundry agent exists and gpt-4o is deployed
         run: |
-          python agent-script.py || echo "::warning::Foundry deploy failed - needs real AZURE_CREDENTIALS SP with Cognitive Services User on Foundry project."
-
-  # --------------------------------------------------------------------
-  deploy-bot-test:
-    name: Deploy custom-engine bot (Test)
-    runs-on: ubuntu-latest
-    environment: test
-    needs: export-studio
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install Teams Toolkit CLI
-        run: npm install -g @microsoft/teamsapp-cli@latest
-
-      - name: Smoke-build bot package
-        run: |
-          if [ -d custom-engine-bot ] && [ -f custom-engine-bot/package.json ]; then
-            cd custom-engine-bot
-            npm ci || npm install
-            npm run build || echo "::warning::bot build failed (non-blocking stub)"
-          else
-            echo "No bot source in repo yet - skipping. Bot lives at day4/labs/lab4-custom-engine-sdk/contoso-hr-custom in training workspace."
-          fi
+          echo "=== Foundry account ==="
+          az cognitiveservices account show \
+            -n congizant-foundry -g rg-congizant-training \
+            --query "{name:name, kind:kind, endpoint:properties.endpoint, allowProjectMgmt:properties.allowProjectManagement}" \
+            -o table
+          echo "=== Foundry project ==="
+          az rest --method GET \
+            --uri "https://management.azure.com/subscriptions/43cc37a8-0d5b-49ea-a666-6d64113b84cb/resourceGroups/rg-congizant-training/providers/Microsoft.CognitiveServices/accounts/congizant-foundry/projects?api-version=2025-04-01-preview" \
+            --query "value[].{name:name,state:properties.provisioningState}" -o table
+          echo "=== gpt-4o deployment ==="
+          az cognitiveservices account deployment list \
+            -n congizant-foundry -g rg-congizant-training \
+            --query "[].{name:name,model:properties.model.name,sku:sku.name}" -o table
 
   # --------------------------------------------------------------------
   deploy-multi-agent-test:
     name: Deploy multi-agent system (Test)
     runs-on: ubuntu-latest
     environment: test
-    needs: deploy-foundry-test
+    needs: verify-foundry-agent
+    outputs:
+      app-fqdn: ${{ steps.deploy.outputs.fqdn }}
+      image-tag: ${{ steps.tag.outputs.tag }}
+    env:
+      RG: rg-congizant-training
+      ACR: congizanttrainingacr
+      APP: multi-agent-orchestrator
+      ENV_NAME: congizant-training-env
+      LOC: eastus2
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install deps
-        run: |
-          pip install \
-            "semantic-kernel>=1.10.0" \
-            "azure-ai-projects>=1.0.0b5" \
-            "azure-identity>=1.17.0" \
-            "openai>=1.50.0" \
-            "requests>=2.32.0"
-
       - name: Azure login
-        continue-on-error: true
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Run multi-agent eval harness
-        env:
-          AZURE_OPENAI_ENDPOINT:     ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-          AZURE_OPENAI_API_KEY:      ${{ secrets.AZURE_OPENAI_API_KEY }}
-          AZURE_OPENAI_DEPLOYMENT:   gpt-4o-training
-          AZURE_OPENAI_API_VERSION:  "2024-08-01-preview"
-          PROJECT_CONNECTION_STRING: ${{ secrets.PROJECT_CONNECTION_STRING_TEST }}
-          FOUNDRY_AGENT_ID:          fallback
-          USE_BING_MOCK:             "true"
-        run: |
-          python day5/labs/lab5-capstone-multi-agent/src/eval_harness.py \
-            --backend multi-agent \
-            --dataset day5/labs/lab5-capstone-multi-agent/eval-prompts.jsonl \
-            --regression-threshold 0.05 \
-            --out results-multi-agent-test.json || \
-            echo "::warning::multi-agent eval failed — see logs."
+      - name: Compute image tag
+        id: tag
+        run: echo "tag=ci-${GITHUB_SHA::7}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
 
-      - name: Upload results
+      - name: ACR build (server-side, no docker daemon needed)
+        run: |
+          az acr build \
+            --registry "$ACR" \
+            --image "$APP:${{ steps.tag.outputs.tag }}" \
+            --image "$APP:latest" \
+            --file day5/labs/lab5-capstone-multi-agent/Dockerfile \
+            day5/labs
+
+      - name: Update Container App image
+        id: deploy
+        run: |
+          az containerapp update \
+            -n "$APP" -g "$RG" \
+            --image "$ACR.azurecr.io/$APP:${{ steps.tag.outputs.tag }}" \
+            -o none
+          fqdn=$(az containerapp show -n "$APP" -g "$RG" \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          echo "fqdn=$fqdn" >> "$GITHUB_OUTPUT"
+          echo "App URL: https://$fqdn"
+
+      - name: Wait for new revision to come healthy
+        run: |
+          fqdn="${{ steps.deploy.outputs.fqdn }}"
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 "https://$fqdn/health" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "Health check passed after ${i} tries"
+              curl -s "https://$fqdn/health"
+              echo
+              exit 0
+            fi
+            echo "($i/30) waiting on revision rollout (code=$code)…"
+            sleep 5
+          done
+          echo "::error::Container App did not become healthy"
+          exit 1
+
+      - name: Live smoke test (POST /ask)
+        run: |
+          fqdn="${{ steps.deploy.outputs.fqdn }}"
+          resp=$(curl -s -X POST "https://$fqdn/ask" \
+            -H "Content-Type: application/json" \
+            --max-time 90 \
+            -d '{"question":"How many vacation days does Priya (E-1042) have left?"}')
+          echo "$resp" | tee live-smoke-result.json
+          echo "$resp" | grep -qi "12.5" || { echo "::error::Live smoke missing expected balance"; exit 1; }
+
+      - name: Upload smoke result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: eval-results-multi-agent
-          path: results-multi-agent-test.json
+          name: multi-agent-live-smoke
+          path: live-smoke-result.json
 
   # --------------------------------------------------------------------
   eval-gate-test:
-    name: Eval gate (Test)
+    name: Eval gate (Test) - hits live Container App
     runs-on: ubuntu-latest
-    needs: [deploy-foundry-test, deploy-bot-test, deploy-multi-agent-test]
+    needs: [verify-foundry-agent, deploy-multi-agent-test]
     environment: test
+    env:
+      APP_FQDN: ${{ needs.deploy-multi-agent-test.outputs.app-fqdn }}
     steps:
       - uses: actions/checkout@v4
 
@@ -174,37 +137,62 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install deps
-        run: pip install requests openai azure-ai-projects azure-ai-agents azure-identity
-
-      - name: Run harness against Copilot Studio (Test)
-        env:
-          DIRECT_LINE_SECRET: ${{ secrets.DIRECT_LINE_SECRET_TEST }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - name: Run eval harness against LIVE container
         run: |
-          python eval_harness.py \
-            --dataset golden-dataset/eval-prompts.jsonl \
-            --baseline baseline.json \
-            --regression-threshold 0.05 \
-            --out results-studio-test.json || echo "eval harness failed (non-blocking for first run; see logs)"
+          python - <<'PY'
+          import json, os, sys, urllib.request
+          fqdn = os.environ["APP_FQDN"]
+          dataset = "day5/labs/lab5-capstone-multi-agent/eval-prompts.jsonl"
+          cases = [json.loads(l) for l in open(dataset) if l.strip()]
+          passed = 0
+          results = []
+          for i, c in enumerate(cases, 1):
+              body = json.dumps({"question": c["prompt"]}).encode()
+              req = urllib.request.Request(
+                  f"https://{fqdn}/ask",
+                  data=body,
+                  headers={"Content-Type": "application/json"},
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=120) as r:
+                      reply = json.load(r)["answer"]
+              except Exception as e:
+                  reply = f"ERROR: {e}"
+              low = reply.lower()
+              if "must_contain_any" in c:
+                  ok = any(k.lower() in low for k in c["must_contain_any"])
+                  missing = [] if ok else c["must_contain_any"]
+              else:
+                  missing = [k for k in c.get("must_contain", []) if k.lower() not in low]
+                  ok = not missing
+              if ok:
+                  passed += 1
+              mark = "PASS" if ok else "FAIL"
+              print(f"[{mark}] {i}/{len(cases)} {c['prompt'][:60]}")
+              if not ok:
+                  print(f"    missing: {missing}")
+                  print(f"    reply:   {reply[:120]}")
+              results.append({"id": c["id"], "ok": ok, "reply": reply, "missing": missing})
+          summary = {
+              "total": len(cases),
+              "passed": passed,
+              "pass_rate": passed / len(cases),
+              "results": results,
+          }
+          with open("results-live-multi-agent.json", "w") as f:
+              json.dump(summary, f, indent=2)
+          print(f"\n{passed}/{len(cases)} passed against LIVE container https://{fqdn}")
+          if summary["pass_rate"] < 0.85:
+              print("::error::live container pass rate < 85%")
+              sys.exit(1)
+          PY
 
-      - name: Run harness against Foundry (Test)
-        env:
-          PROJECT_ENDPOINT: ${{ secrets.PROJECT_CONNECTION_STRING_TEST }}
-        run: |
-          python foundry_eval.py \
-            --agent-id ${{ vars.FOUNDRY_AGENT_ID_TEST }} \
-            --dataset golden-dataset/eval-prompts.jsonl \
-            --baseline foundry-baseline.json \
-            --regression-threshold 0.05 \
-            --out results-foundry-test.json || echo "foundry eval failed (non-blocking for first run)"
-
-      - name: Upload results
+      - name: Upload live eval results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: eval-results-test
-          path: results-*.json
+          name: eval-results-live-multi-agent
+          path: results-live-multi-agent.json
 
   # --------------------------------------------------------------------
   promote-to-prod:

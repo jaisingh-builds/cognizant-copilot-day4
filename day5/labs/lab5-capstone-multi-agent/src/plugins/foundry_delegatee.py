@@ -42,50 +42,38 @@ class FoundryDelegateePlugin:
 
     # ------------------------------------------------------------
     def _foundry_call(self, agent_id: str, question: str) -> str:
-        from azure.ai.projects import AIProjectClient
+        from azure.ai.agents import AgentsClient
         from azure.identity import DefaultAzureCredential
 
-        conn_str = os.environ["PROJECT_CONNECTION_STRING"]
-        client = AIProjectClient.from_connection_string(
+        endpoint = os.environ.get(
+            "FOUNDRY_PROJECT_ENDPOINT",
+            os.environ.get("PROJECT_CONNECTION_STRING", ""),
+        )
+        if not endpoint:
+            return "[foundry delegatee] FOUNDRY_PROJECT_ENDPOINT not set"
+
+        client = AgentsClient(
+            endpoint=endpoint,
             credential=DefaultAzureCredential(),
-            conn_str=conn_str,
         )
 
-        thread = client.agents.create_thread()
-        client.agents.create_message(
+        thread = client.threads.create()
+        client.messages.create(
             thread_id=thread.id, role="user", content=question
         )
-        run = client.agents.create_run(
+        run = client.runs.create_and_process(
             thread_id=thread.id, agent_id=agent_id
         )
 
-        # Same poll loop as Day 4 Lab 2.
-        deadline = time.time() + 60
-        while time.time() < deadline:
-            run = client.agents.get_run(
-                thread_id=thread.id, run_id=run.id
-            )
-            if run.status in ("completed", "failed", "cancelled"):
-                break
-            if run.status == "requires_action":
-                # This capstone's Foundry agent doesn't have tools
-                # we need to satisfy here — if it does in your real
-                # deployment, handle tool_outputs like Day 4 Lab 2.
-                return (
-                    "[foundry delegatee] agent asked for tool output; "
-                    "not wired in this lab. Returning abstain."
-                )
-            time.sleep(1)
+        if str(run.status).lower() not in ("runstatus.completed", "completed"):
+            return f"[foundry delegatee] run status: {run.status}"
 
-        if run.status != "completed":
-            return f"[foundry delegatee] run ended in status: {run.status}"
-
-        msgs = client.agents.list_messages(thread_id=thread.id)
-        for m in msgs.data:
-            if m.role == "assistant":
-                # list_messages returns newest first in the Day 4 SDK.
-                if m.content and m.content[0].type == "text":
-                    return m.content[0].text.value
+        msgs = list(client.messages.list(thread_id=thread.id, order="desc"))
+        for m in msgs:
+            if m.role == "assistant" and m.content:
+                first = m.content[0]
+                if hasattr(first, "text"):
+                    return first.text.value
         return "[foundry delegatee] no assistant message found"
 
     # ------------------------------------------------------------
